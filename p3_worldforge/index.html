@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WORLDSEED | Real-Time Choice-Driven World Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Unbounded:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sky-top: #112335;
+      --sky-bottom: #39524a;
+      --panel: rgba(8, 13, 19, 0.68);
+      --panel-border: rgba(255, 255, 255, 0.12);
+      --text-main: #f1eadf;
+      --text-sub: rgba(241, 234, 223, 0.66);
+      --accent: #9fe870;
+      --accent-soft: rgba(159, 232, 112, 0.18);
+      --hud-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--text-main);
+      background:
+        radial-gradient(circle at 50% 72%, rgba(255, 220, 150, 0.14), transparent 28%),
+        radial-gradient(circle at 16% 16%, rgba(255, 255, 255, 0.08), transparent 20%),
+        linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 58%, #081012 100%);
+      transition: background 1.2s ease;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .grain {
+      position: absolute;
+      inset: 0;
+      opacity: 0.14;
+      mix-blend-mode: soft-light;
+      background-image:
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3) 0 1px, transparent 1px),
+        radial-gradient(circle at 65% 40%, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px),
+        radial-gradient(circle at 80% 72%, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px);
+      background-size: 180px 180px, 260px 260px, 220px 220px;
+    }
+
+    .topbar {
+      position: absolute;
+      top: 26px;
+      left: 28px;
+      right: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+    }
+
+    .brand {
+      max-width: 520px;
+    }
+
+    .brand h1 {
+      font-family: "Unbounded", sans-serif;
+      font-size: clamp(1.7rem, 3vw, 3.2rem);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .brand p {
+      margin-top: 12px;
+      max-width: 480px;
+      color: var(--text-sub);
+      font-size: 0.92rem;
+      line-height: 1.65;
+    }
+
+    .status-chip {
+      padding: 12px 16px;
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      background: rgba(6, 10, 15, 0.52);
+      backdrop-filter: blur(12px);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      box-shadow: var(--hud-shadow);
+    }
+
+    .status-chip strong {
+      color: var(--text-main);
+      font-weight: 700;
+    }
+
+    .control-panel {
+      position: absolute;
+      left: 28px;
+      bottom: 28px;
+      width: min(380px, calc(100vw - 56px));
+      padding: 22px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 28px;
+      box-shadow: var(--hud-shadow);
+      backdrop-filter: blur(20px);
+      pointer-events: all;
+    }
+
+    .panel-label {
+      font-size: 0.76rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-sub);
+    }
+
+    .panel-title {
+      margin-top: 6px;
+      font-family: "Unbounded", sans-serif;
+      font-size: 1.1rem;
+      line-height: 1.4;
+    }
+
+    .panel-copy {
+      margin-top: 10px;
+      color: var(--text-sub);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .choice-group {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .choice-group h2 {
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-main);
+      margin-bottom: 10px;
+    }
+
+    .chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+      font: inherit;
+      font-size: 0.82rem;
+      padding: 10px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: 220ms ease;
+      letter-spacing: 0.02em;
+    }
+
+    .chip:hover {
+      border-color: rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.09);
+      transform: translateY(-1px);
+    }
+
+    .chip.active {
+      background: var(--accent-soft);
+      border-color: rgba(159, 232, 112, 0.7);
+      color: #fbffe8;
+      box-shadow: inset 0 0 0 1px rgba(159, 232, 112, 0.24);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .ghost-btn {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      font: inherit;
+      font-size: 0.82rem;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: 220ms ease;
+    }
+
+    .ghost-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .world-card {
+      position: absolute;
+      right: 28px;
+      bottom: 28px;
+      width: min(360px, calc(100vw - 56px));
+      padding: 22px;
+      border-radius: 28px;
+      border: 1px solid var(--panel-border);
+      background: rgba(4, 8, 12, 0.46);
+      box-shadow: var(--hud-shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .world-card h3 {
+      font-family: "Unbounded", sans-serif;
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-top: 6px;
+    }
+
+    .world-card p {
+      margin-top: 10px;
+      color: var(--text-sub);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .metrics {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .metric {
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .metric span {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-sub);
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .footer-note {
+      position: absolute;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(4, 7, 10, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      backdrop-filter: blur(14px);
+    }
+
+    @media (max-width: 980px) {
+      .topbar {
+        flex-direction: column;
+      }
+
+      .world-card {
+        width: min(420px, calc(100vw - 56px));
+        bottom: 318px;
+      }
+
+      .footer-note {
+        display: none;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .topbar,
+      .control-panel,
+      .world-card {
+        left: 16px;
+        right: 16px;
+        width: auto;
+      }
+
+      .topbar {
+        top: 16px;
+      }
+
+      .control-panel {
+        bottom: 16px;
+        padding: 18px;
+        border-radius: 24px;
+      }
+
+      .world-card {
+        bottom: 392px;
+        padding: 18px;
+        border-radius: 24px;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .brand p {
+        max-width: none;
+      }
+    }
+
+    .capture-mode #app {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="grain"></div>
+    <div class="topbar">
+      <div class="brand">
+        <div class="panel-label">P3 | Game Visual Design Prototype</div>
+        <h1>Worldseed</h1>
+        <p>
+          A real-time prototype where the player shapes the virtual world through
+          in-game choices. Each decision rewrites the terrain silhouette, landmark
+          language, danger level, lighting, and color atmosphere live in the scene.
+        </p>
+      </div>
+      <div class="status-chip">
+        Live generation status: <strong id="statusText">Rendering initial realm</strong>
+      </div>
+    </div>
+
+    <aside class="control-panel">
+      <div class="panel-label">World Grammar</div>
+      <div class="panel-title">Three choices build one playable mood.</div>
+      <p class="panel-copy">
+        Imagine these as narrative decisions during gameplay. The prototype updates
+        the world immediately so a player can feel the consequence of each branch.
+      </p>
+
+      <section class="choice-group">
+        <h2>Act I · Climate</h2>
+        <div class="chip-grid" data-group="climate">
+          <button class="chip" data-group="climate" data-value="verdant">Verdant</button>
+          <button class="chip" data-group="climate" data-value="arid">Arid</button>
+          <button class="chip" data-group="climate" data-value="glacial">Glacial</button>
+        </div>
+      </section>
+
+      <section class="choice-group">
+        <h2>Act II · Power</h2>
+        <div class="chip-grid" data-group="power">
+          <button class="chip" data-group="power" data-value="ancient">Ancient</button>
+          <button class="chip" data-group="power" data-value="machine">Machine</button>
+          <button class="chip" data-group="power" data-value="arcane">Arcane</button>
+        </div>
+      </section>
+
+      <section class="choice-group">
+        <h2>Act III · Tension</h2>
+        <div class="chip-grid" data-group="tension">
+          <button class="chip" data-group="tension" data-value="calm">Calm</button>
+          <button class="chip" data-group="tension" data-value="unstable">Unstable</button>
+          <button class="chip" data-group="tension" data-value="cataclysm">Cataclysm</button>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button class="ghost-btn" id="rerollBtn">New Seed</button>
+        <button class="ghost-btn" id="cinematicBtn">Toggle Auto Orbit</button>
+      </div>
+    </aside>
+
+    <section class="world-card">
+      <div class="panel-label">Current Path</div>
+      <h3 id="worldTitle">Verdant / Ancient / Calm</h3>
+      <p id="worldSummary"></p>
+      <div class="metrics">
+        <div class="metric">
+          <span>Terrain</span>
+          <strong id="terrainMetric">Soft Hills</strong>
+        </div>
+        <div class="metric">
+          <span>Structures</span>
+          <strong id="structureMetric">Stone Ring</strong>
+        </div>
+        <div class="metric">
+          <span>Tension</span>
+          <strong id="tensionMetric">Low Pulse</strong>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">Drag to orbit · scroll to zoom · choices rewrite the world in real time</div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const climateConfigs = {
+      verdant: {
+        label: "Verdant",
+        skyTop: "#112335",
+        skyBottom: "#4b6d57",
+        accent: "#9fe870",
+        groundLow: 0x304227,
+        groundHigh: 0x88c26e,
+        propA: 0x6d9447,
+        propB: 0xe8d98a,
+        glow: 0xe3ff9f,
+        sun: 0xfde7a3,
+        terrainMetric: "Soft Hills",
+        description: "Rolling hills, broad canopies, and warm sunrise fog frame the world as a safe opening chapter."
+      },
+      arid: {
+        label: "Arid",
+        skyTop: "#2f1711",
+        skyBottom: "#b66438",
+        accent: "#ffb14a",
+        groundLow: 0x56331d,
+        groundHigh: 0xd68a45,
+        propA: 0x8c5b34,
+        propB: 0xf6d095,
+        glow: 0xffd27a,
+        sun: 0xffb35a,
+        terrainMetric: "Ridge Dunes",
+        description: "Wind-cut ridges and hard sunlight create a frontier mood, pushing the player toward survival."
+      },
+      glacial: {
+        label: "Glacial",
+        skyTop: "#071a28",
+        skyBottom: "#5b98c7",
+        accent: "#9ee9ff",
+        groundLow: 0x3a627e,
+        groundHigh: 0xe7f7ff,
+        propA: 0x8ecad9,
+        propB: 0xf7ffff,
+        glow: 0xc7fbff,
+        sun: 0xd7efff,
+        terrainMetric: "Frozen Shelf",
+        description: "Stepped ice shelves and cold air emphasize isolation, distance, and high-contrast silhouettes."
+      }
+    };
+
+    const powerConfigs = {
+      ancient: {
+        label: "Ancient",
+        colorA: 0xbbb395,
+        colorB: 0x6d6449,
+        emissive: 0xefe3b0,
+        structureMetric: "Stone Ring",
+        description: "Ancient power manifests as monoliths, arches, and ceremonial geometry."
+      },
+      machine: {
+        label: "Machine",
+        colorA: 0x8fa4ae,
+        colorB: 0x32414e,
+        emissive: 0x7fd7ff,
+        structureMetric: "Steel Towers",
+        description: "Machine power turns the world into a production landscape of towers, rails, and rotating frames."
+      },
+      arcane: {
+        label: "Arcane",
+        colorA: 0xc9a3ff,
+        colorB: 0x533d8e,
+        emissive: 0xf2c7ff,
+        structureMetric: "Crystal Spires",
+        description: "Arcane power introduces levitation, crystal growth, and ritual light beams."
+      }
+    };
+
+    const tensionConfigs = {
+      calm: {
+        label: "Calm",
+        fog: 0x0c1417,
+        pulse: 0.35,
+        accentShift: "#f5f0d4",
+        tensionMetric: "Low Pulse",
+        description: "The world breathes slowly, with soft particles and a stable horizon."
+      },
+      unstable: {
+        label: "Unstable",
+        fog: 0x121317,
+        pulse: 0.65,
+        accentShift: "#ffe39f",
+        tensionMetric: "Rising Pulse",
+        description: "Fragments begin to drift and the skyline picks up kinetic stress."
+      },
+      cataclysm: {
+        label: "Cataclysm",
+        fog: 0x140b0a,
+        pulse: 1.05,
+        accentShift: "#ff9e7e",
+        tensionMetric: "Critical Pulse",
+        description: "The terrain breaks, debris lifts, and the scene leans into collapse."
+      }
+    };
+
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("capture") === "1") {
+      document.body.classList.add("capture-mode");
+    }
+
+    const state = {
+      climate: climateConfigs[query.get("climate")] ? query.get("climate") : "verdant",
+      power: powerConfigs[query.get("power")] ? query.get("power") : "ancient",
+      tension: tensionConfigs[query.get("tension")] ? query.get("tension") : "calm",
+      seed: Number.isFinite(Number(query.get("seed"))) ? Number(query.get("seed")) : 1
+    };
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 140);
+    camera.position.set(13, 10, 13);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.maxPolarAngle = Math.PI * 0.43;
+    controls.minDistance = 9;
+    controls.maxDistance = 28;
+    controls.target.set(0, 1.4, 0);
+    controls.autoRotate = false;
+    controls.autoRotateSpeed = 0.4;
+
+    const worldRoot = new THREE.Group();
+    scene.add(worldRoot);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0x87d6ff, 0x0c0f12, 0.9);
+    scene.add(hemiLight);
+
+    const keyLight = new THREE.DirectionalLight(0xfff2c6, 2.6);
+    keyLight.position.set(9, 12, 4);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.left = -18;
+    keyLight.shadow.camera.right = 18;
+    keyLight.shadow.camera.top = 18;
+    keyLight.shadow.camera.bottom = -18;
+    scene.add(keyLight);
+
+    const rimLight = new THREE.PointLight(0x7fe7ff, 6, 40);
+    rimLight.position.set(-10, 8, -10);
+    scene.add(rimLight);
+
+    const fillLight = new THREE.PointLight(0xffb47a, 3.4, 30);
+    fillLight.position.set(6, 3, 10);
+    scene.add(fillLight);
+
+    const floorDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(34, 96),
+      new THREE.MeshStandardMaterial({
+        color: 0x111417,
+        metalness: 0.02,
+        roughness: 0.94,
+        transparent: true,
+        opacity: 0.9
+      })
+    );
+    floorDisc.rotation.x = -Math.PI / 2;
+    floorDisc.position.y = -1.4;
+    floorDisc.receiveShadow = true;
+    scene.add(floorDisc);
+
+    const atmosphereRing = new THREE.Mesh(
+      new THREE.TorusGeometry(10.2, 0.12, 12, 96),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.18
+      })
+    );
+    atmosphereRing.rotation.x = Math.PI / 2;
+    atmosphereRing.position.y = 0.4;
+    scene.add(atmosphereRing);
+
+    const skyOrb = new THREE.Mesh(
+      new THREE.SphereGeometry(1.4, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    skyOrb.position.set(-11, 11, -15);
+    scene.add(skyOrb);
+
+    const orbiters = [];
+    const pulseItems = [];
+    const floatingItems = [];
+    const fadeItems = [];
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function smoothstep(t) {
+      return t * t * (3 - 2 * t);
+    }
+
+    function hashString(value) {
+      let hash = 2166136261;
+      for (let i = 0; i < value.length; i++) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return hash >>> 0;
+    }
+
+    function mulberry32(seed) {
+      let value = seed >>> 0;
+      return function rand() {
+        value += 0x6D2B79F5;
+        let t = value;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function valueNoise2D(x, z, seed) {
+      const x0 = Math.floor(x);
+      const z0 = Math.floor(z);
+      const xf = x - x0;
+      const zf = z - z0;
+
+      const rand = (ix, iz) => {
+        const s = Math.sin(ix * 127.1 + iz * 311.7 + seed * 91.73) * 43758.5453123;
+        return s - Math.floor(s);
+      };
+
+      const a = rand(x0, z0);
+      const b = rand(x0 + 1, z0);
+      const c = rand(x0, z0 + 1);
+      const d = rand(x0 + 1, z0 + 1);
+
+      const u = xf * xf * (3 - 2 * xf);
+      const v = zf * zf * (3 - 2 * zf);
+
+      return lerp(lerp(a, b, u), lerp(c, d, u), v);
+    }
+
+    function fbm(x, z, seed, octaves = 4) {
+      let sum = 0;
+      let amp = 0.5;
+      let freq = 0.18;
+      for (let i = 0; i < octaves; i++) {
+        sum += amp * (valueNoise2D(x * freq, z * freq, seed + i * 17) * 2 - 1);
+        amp *= 0.5;
+        freq *= 2.1;
+      }
+      return sum;
+    }
+
+    function terrainHeightAt(x, z, worldSeed) {
+      const radial = Math.sqrt(x * x + z * z);
+      const n = fbm(x, z, worldSeed, 5);
+      let height = 0;
+
+      if (state.climate === "verdant") {
+        height = n * 2.4 + Math.sin(x * 0.35) * 0.45 + Math.cos(z * 0.28) * 0.32;
+        height -= radial * 0.07;
+      }
+
+      if (state.climate === "arid") {
+        const dunes = Math.abs(Math.sin(x * 0.38 + worldSeed * 0.003) + Math.cos(z * 0.36)) * 1.35;
+        height = dunes + n * 1.45 - radial * 0.05 - 1.2;
+      }
+
+      if (state.climate === "glacial") {
+        const shelf = Math.round((n * 1.8 + Math.sin(x * 0.18) * 0.28) * 2.4) / 2.4;
+        const spikes = Math.max(0, fbm(x * 1.7, z * 1.7, worldSeed + 99, 3) - 0.08) * 2.1;
+        height = shelf + spikes - radial * 0.03 - 0.5;
+      }
+
+      if (state.tension === "unstable") {
+        height += fbm(x * 1.4, z * 1.4, worldSeed + 300, 2) * 0.55;
+      }
+
+      if (state.tension === "cataclysm") {
+        const fissure = Math.exp(-Math.pow(x * 0.12 + z * 0.045 + Math.sin(z * 0.24 + worldSeed * 0.005) * 0.7, 2) * 3.2);
+        height += fbm(x * 1.6, z * 1.6, worldSeed + 600, 2) * 0.45;
+        height -= fissure * 2.8;
+      }
+
+      return height;
+    }
+
+    function createStandardMaterial(color, options = {}) {
+      return new THREE.MeshStandardMaterial({
+        color,
+        flatShading: true,
+        transparent: true,
+        opacity: options.opacity ?? 1,
+        emissive: options.emissive ? new THREE.Color(options.emissive) : new THREE.Color(0x000000),
+        emissiveIntensity: options.emissiveIntensity ?? 0,
+        metalness: options.metalness ?? 0.08,
+        roughness: options.roughness ?? 0.82
+      });
+    }
+
+    function registerAnimatedMesh(mesh, config = {}) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData.appearStart = performance.now() * 0.001 + (config.delay ?? 0);
+      mesh.userData.baseScale = mesh.scale.clone();
+      mesh.scale.multiplyScalar(0.001);
+
+      if (mesh.material) {
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const material of materials) {
+          material.transparent = true;
+          material.userData.baseOpacity = material.opacity;
+          material.opacity = 0;
+        }
+      }
+
+      if (config.floatAmplitude) {
+        floatingItems.push({
+          object: mesh,
+          originY: mesh.position.y,
+          amplitude: config.floatAmplitude,
+          speed: config.floatSpeed ?? 1,
+          offset: config.offset ?? Math.random() * Math.PI * 2,
+          rotateY: config.rotateY ?? 0,
+          rotateX: config.rotateX ?? 0
+        });
+      }
+    }
+
+    function registerPulse(object, config) {
+      pulseItems.push({
+        object,
+        baseScale: object.scale.clone(),
+        min: config.min ?? 0.94,
+        max: config.max ?? 1.06,
+        speed: config.speed ?? 1,
+        opacityMin: config.opacityMin ?? 0.12,
+        opacityMax: config.opacityMax ?? 0.36
+      });
+    }
+
+    function disposeObject(object) {
+      object.traverse((child) => {
+        if (child.geometry) {
+          child.geometry.dispose();
+        }
+        if (child.material) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          for (const material of materials) {
+            material.dispose();
+          }
+        }
+      });
+    }
+
+    function clearWorld() {
+      while (worldRoot.children.length) {
+        const child = worldRoot.children[0];
+        worldRoot.remove(child);
+        disposeObject(child);
+      }
+      orbiters.length = 0;
+      pulseItems.length = 0;
+      floatingItems.length = 0;
+      fadeItems.length = 0;
+    }
+
+    function createTerrain(worldSeed) {
+      const climate = climateConfigs[state.climate];
+      const size = 26;
+      const segments = 52;
+      const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+      geometry.rotateX(-Math.PI / 2);
+      const position = geometry.attributes.position;
+      const colors = new Float32Array(position.count * 3);
+      const low = new THREE.Color(climate.groundLow);
+      const high = new THREE.Color(climate.groundHigh);
+      const sample = new THREE.Color();
+
+      let minHeight = Infinity;
+      let maxHeight = -Infinity;
+      const heights = [];
+
+      for (let i = 0; i < position.count; i++) {
+        const x = position.getX(i);
+        const z = position.getZ(i);
+        const y = terrainHeightAt(x, z, worldSeed);
+        position.setY(i, y);
+        heights.push(y);
+        minHeight = Math.min(minHeight, y);
+        maxHeight = Math.max(maxHeight, y);
+      }
+
+      for (let i = 0; i < position.count; i++) {
+        const t = clamp((heights[i] - minHeight) / Math.max(0.001, maxHeight - minHeight), 0, 1);
+        sample.lerpColors(low, high, smoothstep(t));
+        colors[i * 3] = sample.r;
+        colors[i * 3 + 1] = sample.g;
+        colors[i * 3 + 2] = sample.b;
+      }
+
+      geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      geometry.computeVertexNormals();
+
+      const terrain = new THREE.Mesh(
+        geometry,
+        new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          flatShading: true,
+          metalness: 0.03,
+          roughness: 0.94,
+          transparent: true,
+          opacity: 1
+        })
+      );
+      terrain.receiveShadow = true;
+      terrain.castShadow = true;
+      registerAnimatedMesh(terrain, { delay: 0.02 });
+
+      return terrain;
+    }
+
+    function scatterClimateProps(group, worldSeed, rng) {
+      const climate = climateConfigs[state.climate];
+
+      if (state.climate === "verdant") {
+        for (let i = 0; i < 46; i++) {
+          const radius = 3.2 + rng() * 8.8;
+          const angle = rng() * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = terrainHeightAt(x, z, worldSeed);
+
+          const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.08, 0.12, 0.8 + rng() * 0.7, 6),
+            createStandardMaterial(0x3c291a, { roughness: 0.95 })
+          );
+          trunk.position.set(x, y + 0.4, z);
+
+          const crown = new THREE.Mesh(
+            new THREE.ConeGeometry(0.38 + rng() * 0.22, 0.9 + rng() * 0.6, 7),
+            createStandardMaterial(climate.propA, { roughness: 0.88 })
+          );
+          crown.position.set(x, y + 1.05 + rng() * 0.18, z);
+          crown.rotation.y = rng() * Math.PI;
+          crown.scale.y = 0.86 + rng() * 0.34;
+
+          registerAnimatedMesh(trunk, { delay: i * 0.006 });
+          registerAnimatedMesh(crown, { delay: i * 0.006 + 0.02, floatAmplitude: 0.04, floatSpeed: 0.8, offset: i });
+          group.add(trunk, crown);
+        }
+      }
+
+      if (state.climate === "arid") {
+        for (let i = 0; i < 38; i++) {
+          const radius = 3 + rng() * 9;
+          const angle = rng() * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = terrainHeightAt(x, z, worldSeed);
+
+          const rock = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.18 + rng() * 0.28, 0.34 + rng() * 0.32, 0.9 + rng() * 2.4, 6),
+            createStandardMaterial(climate.propA, { roughness: 0.97 })
+          );
+          rock.position.set(x, y + rock.geometry.parameters.height * 0.5, z);
+          rock.rotation.y = rng() * Math.PI;
+          rock.rotation.z = (rng() - 0.5) * 0.28;
+
+          registerAnimatedMesh(rock, { delay: i * 0.008 });
+          group.add(rock);
+        }
+      }
+
+      if (state.climate === "glacial") {
+        for (let i = 0; i < 42; i++) {
+          const radius = 2.8 + rng() * 8.6;
+          const angle = rng() * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = terrainHeightAt(x, z, worldSeed);
+
+          const shard = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.24 + rng() * 0.34, 0),
+            createStandardMaterial(climate.propA, {
+              emissive: climate.glow,
+              emissiveIntensity: 0.08,
+              roughness: 0.22,
+              metalness: 0.18
+            })
+          );
+          shard.position.set(x, y + 0.4 + rng() * 0.6, z);
+          shard.scale.set(1, 1.8 + rng() * 2.4, 0.8 + rng() * 0.5);
+          shard.rotation.set(rng() * 0.8, rng() * Math.PI, rng() * 0.8);
+
+          registerAnimatedMesh(shard, {
+            delay: i * 0.008,
+            floatAmplitude: 0.05,
+            floatSpeed: 0.7,
+            offset: i * 0.4,
+            rotateY: 0.12
+          });
+          group.add(shard);
+        }
+      }
+    }
+
+    function buildAncientStructures(group, worldSeed) {
+      const power = powerConfigs.ancient;
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const radius = 4.6;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = terrainHeightAt(x, z, worldSeed);
+
+        const monolith = new THREE.Mesh(
+          new THREE.BoxGeometry(0.7, 2.6, 0.7),
+          createStandardMaterial(power.colorA, {
+            roughness: 0.98,
+            emissive: power.emissive,
+            emissiveIntensity: 0.03
+          })
+        );
+        monolith.position.set(x, y + 1.3, z);
+        monolith.rotation.y = angle;
+        registerAnimatedMesh(monolith, { delay: i * 0.04 });
+        group.add(monolith);
+      }
+
+      const archMat = createStandardMaterial(power.colorB, {
+        roughness: 0.94,
+        emissive: power.emissive,
+        emissiveIntensity: 0.04
+      });
+
+      const left = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.6, 0.5), archMat);
+      const right = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.6, 0.5), archMat.clone());
+      const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.42, 0.5), archMat.clone());
+      const baseY = terrainHeightAt(0, -1.6, worldSeed);
+      left.position.set(-1, baseY + 1.3, -1.6);
+      right.position.set(1, baseY + 1.3, -1.6);
+      top.position.set(0, baseY + 2.45, -1.6);
+      registerAnimatedMesh(left, { delay: 0.22 });
+      registerAnimatedMesh(right, { delay: 0.26 });
+      registerAnimatedMesh(top, { delay: 0.3 });
+      group.add(left, right, top);
+    }
+
+    function buildMachineStructures(group, worldSeed, rng) {
+      const power = powerConfigs.machine;
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const radius = 3.8 + (i % 2) * 1.4;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = terrainHeightAt(x, z, worldSeed);
+        const height = 1.4 + rng() * 3.6;
+
+        const tower = new THREE.Mesh(
+          new THREE.BoxGeometry(0.65, height, 0.65),
+          createStandardMaterial(power.colorA, {
+            metalness: 0.42,
+            roughness: 0.48,
+            emissive: power.emissive,
+            emissiveIntensity: 0.05
+          })
+        );
+        tower.position.set(x, y + height * 0.5, z);
+        tower.rotation.y = rng() * Math.PI;
+        registerAnimatedMesh(tower, { delay: i * 0.03 });
+        group.add(tower);
+      }
+
+      const core = new THREE.Mesh(
+        new THREE.TorusGeometry(2.3, 0.28, 12, 64),
+        createStandardMaterial(power.colorB, {
+          metalness: 0.65,
+          roughness: 0.28,
+          emissive: power.emissive,
+          emissiveIntensity: 0.12
+        })
+      );
+      core.position.y = terrainHeightAt(0, 0, worldSeed) + 2.6;
+      core.rotation.x = Math.PI / 2;
+      registerAnimatedMesh(core, { delay: 0.2, floatAmplitude: 0.18, floatSpeed: 0.7, rotateY: 0.55 });
+      registerPulse(core, { min: 0.94, max: 1.08, speed: 1.6, opacityMin: 0.22, opacityMax: 0.4 });
+      group.add(core);
+    }
+
+    function buildArcaneStructures(group, worldSeed, rng) {
+      const power = powerConfigs.arcane;
+
+      for (let i = 0; i < 9; i++) {
+        const angle = (i / 9) * Math.PI * 2;
+        const radius = 3.9 + (i % 3) * 0.8;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = terrainHeightAt(x, z, worldSeed);
+
+        const crystal = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.48 + rng() * 0.32, 0),
+          createStandardMaterial(power.colorA, {
+            metalness: 0.18,
+            roughness: 0.18,
+            emissive: power.emissive,
+            emissiveIntensity: 0.16
+          })
+        );
+        crystal.position.set(x, y + 1.2 + rng() * 0.6, z);
+        crystal.scale.set(0.9, 2.2 + rng() * 1.6, 0.9);
+        crystal.rotation.set(rng() * 0.4, rng() * Math.PI, rng() * 0.4);
+        registerAnimatedMesh(crystal, {
+          delay: i * 0.05,
+          floatAmplitude: 0.22,
+          floatSpeed: 0.85,
+          offset: i * 0.5,
+          rotateY: 0.25
+        });
+        group.add(crystal);
+      }
+
+      const halo = new THREE.Mesh(
+        new THREE.TorusGeometry(2.4, 0.1, 8, 64),
+        createStandardMaterial(power.colorB, {
+          emissive: power.emissive,
+          emissiveIntensity: 0.18,
+          metalness: 0.16,
+          roughness: 0.3
+        })
+      );
+      halo.position.y = terrainHeightAt(0, 0, worldSeed) + 3.8;
+      halo.rotation.x = Math.PI / 2;
+      registerAnimatedMesh(halo, { delay: 0.24, floatAmplitude: 0.2, floatSpeed: 0.6, rotateY: -0.32 });
+      registerPulse(halo, { min: 0.92, max: 1.12, speed: 1.4, opacityMin: 0.18, opacityMax: 0.48 });
+      group.add(halo);
+    }
+
+    function buildPowerLayer(group, worldSeed, rng) {
+      if (state.power === "ancient") {
+        buildAncientStructures(group, worldSeed);
+      }
+      if (state.power === "machine") {
+        buildMachineStructures(group, worldSeed, rng);
+      }
+      if (state.power === "arcane") {
+        buildArcaneStructures(group, worldSeed, rng);
+      }
+    }
+
+    function buildTensionLayer(group, worldSeed, rng) {
+      const tension = tensionConfigs[state.tension];
+      const climate = climateConfigs[state.climate];
+
+      if (state.tension === "calm") {
+        for (let i = 0; i < 16; i++) {
+          const orb = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12 + rng() * 0.08, 12, 12),
+            createStandardMaterial(climate.glow, {
+              emissive: climate.glow,
+              emissiveIntensity: 0.35,
+              roughness: 0.18
+            })
+          );
+          const radius = 2.8 + rng() * 7.4;
+          const angle = rng() * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = terrainHeightAt(x, z, worldSeed) + 1.8 + rng() * 2.6;
+          orb.position.set(x, y, z);
+          registerAnimatedMesh(orb, {
+            delay: i * 0.03,
+            floatAmplitude: 0.18,
+            floatSpeed: 0.6 + rng() * 0.2,
+            offset: i * 0.4
+          });
+          group.add(orb);
+        }
+      }
+
+      if (state.tension === "unstable") {
+        for (let i = 0; i < 12; i++) {
+          const shard = new THREE.Mesh(
+            new THREE.BoxGeometry(0.25, 1.6 + rng() * 1.4, 0.25),
+            createStandardMaterial(climate.accent, {
+              emissive: climate.accent,
+              emissiveIntensity: 0.12,
+              metalness: 0.1,
+              roughness: 0.28
+            })
+          );
+          const radius = 2.6 + rng() * 5.2;
+          const angle = rng() * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = terrainHeightAt(x, z, worldSeed) + 1.8 + rng() * 1.4;
+          shard.position.set(x, y, z);
+          shard.rotation.set((rng() - 0.5) * 0.8, rng() * Math.PI, (rng() - 0.5) * 0.8);
+          registerAnimatedMesh(shard, {
+            delay: i * 0.03,
+            floatAmplitude: 0.22,
+            floatSpeed: 1.3,
+            offset: i * 0.5,
+            rotateY: 0.48
+          });
+          group.add(shard);
+        }
+
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(6.6, 0.08, 8, 72),
+          new THREE.MeshBasicMaterial({
+            color: climate.accent,
+            transparent: true,
+            opacity: 0.24
+          })
+        );
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = terrainHeightAt(0, 0, worldSeed) + 0.8;
+        registerAnimatedMesh(ring, { delay: 0.16 });
+        registerPulse(ring, { min: 0.94, max: 1.08, speed: 2.2, opacityMin: 0.12, opacityMax: 0.34 });
+        group.add(ring);
+      }
+
+      if (state.tension === "cataclysm") {
+        for (let i = 0; i < 18; i++) {
+          const debris = new THREE.Mesh(
+            new THREE.BoxGeometry(0.4 + rng() * 0.9, 0.25 + rng() * 0.45, 0.4 + rng() * 0.9),
+            createStandardMaterial(0x3e2922, {
+              roughness: 0.95,
+              emissive: 0xff5b32,
+              emissiveIntensity: 0.04
+            })
+          );
+          const radius = 2.8 + rng() * 6.8;
+          const angle = rng() * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = terrainHeightAt(x, z, worldSeed) + 2 + rng() * 2.4;
+          debris.position.set(x, y, z);
+          debris.rotation.set(rng() * 0.9, rng() * Math.PI, rng() * 0.9);
+          registerAnimatedMesh(debris, {
+            delay: i * 0.025,
+            floatAmplitude: 0.28,
+            floatSpeed: 1.5,
+            offset: i * 0.5,
+            rotateY: 0.4,
+            rotateX: 0.22
+          });
+          group.add(debris);
+        }
+
+        for (let i = 0; i < 3; i++) {
+          const fissure = new THREE.Mesh(
+            new THREE.BoxGeometry(10 + i * 1.8, 0.06, 0.18),
+            createStandardMaterial(0xff6233, {
+              emissive: 0xff5a34,
+              emissiveIntensity: 0.6,
+              roughness: 0.18
+            })
+          );
+          fissure.position.y = terrainHeightAt(0, 0, worldSeed) + 0.18 + i * 0.02;
+          fissure.rotation.y = -0.32 + i * 0.22;
+          registerAnimatedMesh(fissure, { delay: 0.12 + i * 0.05 });
+          registerPulse(fissure, { min: 0.98, max: 1.03, speed: 2.8, opacityMin: 0.52, opacityMax: 0.88 });
+          group.add(fissure);
+        }
+      }
+
+      const mistRing = new THREE.Mesh(
+        new THREE.RingGeometry(5.6, 10.8, 80),
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color(tension.accentShift),
+          transparent: true,
+          opacity: state.tension === "calm" ? 0.08 : state.tension === "unstable" ? 0.11 : 0.16,
+          side: THREE.DoubleSide
+        })
+      );
+      mistRing.rotation.x = -Math.PI / 2;
+      mistRing.position.y = terrainHeightAt(0, 0, worldSeed) + 0.05;
+      registerAnimatedMesh(mistRing, { delay: 0.06 });
+      group.add(mistRing);
+    }
+
+    function createParticleField(worldSeed) {
+      const particleCount = state.tension === "calm" ? 160 : state.tension === "unstable" ? 240 : 300;
+      const positions = new Float32Array(particleCount * 3);
+      const rng = mulberry32(worldSeed + 9000);
+      const radiusMax = 12;
+
+      for (let i = 0; i < particleCount; i++) {
+        const angle = rng() * Math.PI * 2;
+        const radius = 1.5 + rng() * radiusMax;
+        positions[i * 3] = Math.cos(angle) * radius;
+        positions[i * 3 + 1] = rng() * 6.5 + 0.3;
+        positions[i * 3 + 2] = Math.sin(angle) * radius;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+      const material = new THREE.PointsMaterial({
+        color: climateConfigs[state.climate].glow,
+        size: state.tension === "cataclysm" ? 0.075 : 0.055,
+        transparent: true,
+        opacity: state.tension === "calm" ? 0.34 : state.tension === "unstable" ? 0.42 : 0.48,
+        depthWrite: false
+      });
+
+      const points = new THREE.Points(geometry, material);
+      points.userData.orbitSpeed = 0.03 + tensionConfigs[state.tension].pulse * 0.025;
+      orbiters.push(points);
+      return points;
+    }
+
+    function updateCssEnvironment() {
+      const climate = climateConfigs[state.climate];
+      const tension = tensionConfigs[state.tension];
+      document.documentElement.style.setProperty("--sky-top", climate.skyTop);
+      document.documentElement.style.setProperty("--sky-bottom", climate.skyBottom);
+      document.documentElement.style.setProperty("--accent", climate.accent);
+      document.documentElement.style.setProperty("--accent-soft", new THREE.Color(climate.accent).multiplyScalar(0.18).getStyle());
+      document.documentElement.style.setProperty("--text-main", "#f4ecdf");
+      document.documentElement.style.setProperty("--text-sub", "rgba(244, 236, 223, 0.7)");
+      document.documentElement.style.setProperty("--panel-border", state.tension === "cataclysm" ? "rgba(255, 158, 126, 0.22)" : "rgba(255, 255, 255, 0.12)");
+      document.documentElement.style.setProperty("--panel", state.tension === "cataclysm" ? "rgba(16, 8, 8, 0.72)" : "rgba(8, 13, 19, 0.68)");
+      scene.fog = new THREE.Fog(tension.fog, 18, 40);
+    }
+
+    function updateLightingTargets() {
+      const climate = climateConfigs[state.climate];
+      const power = powerConfigs[state.power];
+      const tension = tensionConfigs[state.tension];
+
+      ambientLight.intensity = state.tension === "cataclysm" ? 0.42 : 0.56;
+      hemiLight.color.set(climate.skyBottom);
+      hemiLight.groundColor.set(tension.fog);
+      hemiLight.intensity = state.climate === "glacial" ? 1.05 : 0.88;
+
+      keyLight.color.set(climate.sun);
+      keyLight.intensity = state.climate === "arid" ? 3.1 : 2.4;
+
+      rimLight.color.set(power.emissive);
+      rimLight.intensity = 4 + tension.pulse * 4.6;
+
+      fillLight.color.set(climate.accent);
+      fillLight.intensity = state.tension === "cataclysm" ? 4.8 : 2.8;
+
+      floorDisc.material.color.set(tension.fog);
+      skyOrb.material.color.set(climate.sun);
+      atmosphereRing.material.color.set(power.emissive);
+    }
+
+    function updateHud() {
+      const climate = climateConfigs[state.climate];
+      const power = powerConfigs[state.power];
+      const tension = tensionConfigs[state.tension];
+
+      document.getElementById("statusText").textContent = `World rebuilt from ${climate.label}, ${power.label}, ${tension.label}`;
+      document.getElementById("worldTitle").textContent = `${climate.label} / ${power.label} / ${tension.label}`;
+      document.getElementById("worldSummary").textContent = `${climate.description} ${power.description} ${tension.description}`;
+      document.getElementById("terrainMetric").textContent = climate.terrainMetric;
+      document.getElementById("structureMetric").textContent = power.structureMetric;
+      document.getElementById("tensionMetric").textContent = tension.tensionMetric;
+    }
+
+    function syncQuery() {
+      const params = new URLSearchParams({
+        climate: state.climate,
+        power: state.power,
+        tension: state.tension,
+        seed: String(state.seed)
+      });
+      history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+    }
+
+    function syncButtons() {
+      document.querySelectorAll(".chip").forEach((button) => {
+        const active = state[button.dataset.group] === button.dataset.value;
+        button.classList.toggle("active", active);
+      });
+    }
+
+    function buildWorld() {
+      clearWorld();
+      const worldSeed = hashString(`${state.climate}:${state.power}:${state.tension}:${state.seed}`);
+      const rng = mulberry32(worldSeed);
+      const realm = new THREE.Group();
+
+      const terrain = createTerrain(worldSeed);
+      realm.add(terrain);
+
+      scatterClimateProps(realm, worldSeed, rng);
+      buildPowerLayer(realm, worldSeed, rng);
+      buildTensionLayer(realm, worldSeed, rng);
+      realm.add(createParticleField(worldSeed));
+
+      const centralMarker = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.9, 1.2, 0.3, 10),
+        createStandardMaterial(powerConfigs[state.power].colorB, {
+          emissive: climateConfigs[state.climate].accent,
+          emissiveIntensity: 0.1,
+          metalness: 0.08,
+          roughness: 0.88
+        })
+      );
+      centralMarker.position.y = terrainHeightAt(0, 0, worldSeed) + 0.16;
+      registerAnimatedMesh(centralMarker, { delay: 0.08 });
+      realm.add(centralMarker);
+
+      worldRoot.add(realm);
+      updateCssEnvironment();
+      updateLightingTargets();
+      updateHud();
+      syncButtons();
+      syncQuery();
+    }
+
+    document.querySelectorAll(".chip").forEach((button) => {
+      button.addEventListener("click", () => {
+        const group = button.dataset.group;
+        state[group] = button.dataset.value;
+        buildWorld();
+      });
+    });
+
+    document.getElementById("rerollBtn").addEventListener("click", () => {
+      state.seed += 1;
+      buildWorld();
+    });
+
+    document.getElementById("cinematicBtn").addEventListener("click", () => {
+      controls.autoRotate = !controls.autoRotate;
+    });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    buildWorld();
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      const elapsed = clock.getElapsedTime();
+      const now = performance.now() * 0.001;
+
+      for (const floater of floatingItems) {
+        floater.object.position.y = floater.originY + Math.sin(elapsed * floater.speed + floater.offset) * floater.amplitude;
+        floater.object.rotation.y += floater.rotateY * 0.01;
+        floater.object.rotation.x += floater.rotateX * 0.01;
+      }
+
+      worldRoot.traverse((child) => {
+        if (!child.userData.appearStart || !child.userData.baseScale) return;
+        const p = clamp((now - child.userData.appearStart) / 0.55, 0, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        child.scale.copy(child.userData.baseScale).multiplyScalar(Math.max(0.001, eased));
+        if (child.material) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          for (const material of materials) {
+            const baseOpacity = material.userData.baseOpacity ?? 1;
+            material.opacity = baseOpacity * p;
+          }
+        }
+      });
+
+      for (const item of pulseItems) {
+        const wave = (Math.sin(elapsed * item.speed) + 1) * 0.5;
+        const scale = lerp(item.min, item.max, wave);
+        item.object.scale.copy(item.baseScale).multiplyScalar(scale);
+        if (item.object.material) {
+          item.object.material.opacity = lerp(item.opacityMin, item.opacityMax, wave);
+        }
+      }
+
+      for (const points of orbiters) {
+        points.rotation.y += points.userData.orbitSpeed * 0.01;
+      }
+
+      skyOrb.position.y = 10.6 + Math.sin(elapsed * 0.18) * 0.4;
+      skyOrb.rotation.y += 0.002;
+      atmosphereRing.rotation.z += 0.0016 + tensionConfigs[state.tension].pulse * 0.0008;
+
+      controls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
